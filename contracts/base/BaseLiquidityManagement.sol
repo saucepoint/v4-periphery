@@ -51,7 +51,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         if (params.liquidityDelta < 0) require(msg.sender == owner, "Cannot redeem position");
 
         delta = abi.decode(
-            poolManager.lock(abi.encodeCall(this.handleModifyPosition, (msg.sender, key, params, hookData, false))),
+            poolManager.unlock(abi.encodeCall(this.handleModifyPosition, (msg.sender, key, params, hookData, false))),
             (BalanceDelta)
         );
 
@@ -78,7 +78,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         uint256 token1Owed
     ) internal returns (BalanceDelta delta) {
         delta = abi.decode(
-            poolManager.lock(
+            poolManager.unlock(
                 abi.encodeCall(
                     this.handleIncreaseLiquidity,
                     (
@@ -100,7 +100,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
 
     function collect(LiquidityRange memory range, bytes calldata hookData) internal returns (BalanceDelta delta) {
         delta = abi.decode(
-            poolManager.lock(
+            poolManager.unlock(
                 abi.encodeCall(
                     this.handleModifyPosition,
                     (
@@ -121,7 +121,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
     }
 
     function sendToken(address recipient, Currency currency, uint256 amount) internal {
-        poolManager.lock(abi.encodeCall(this.handleRedeemClaim, (recipient, currency, amount)));
+        poolManager.unlock(abi.encodeCall(this.handleRedeemClaim, (recipient, currency, amount)));
     }
 
     function _lockAcquired(bytes calldata data) internal override returns (bytes memory) {
@@ -143,7 +143,9 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         bytes calldata hookData,
         bool claims
     ) external returns (BalanceDelta delta) {
+        console2.log("gee");
         delta = poolManager.modifyLiquidity(key, params, hookData);
+        console2.log("ree");
 
         if (params.liquidityDelta <= 0) {
             // removing liquidity/fees so mint tokens to the router

@@ -9,7 +9,7 @@ library PoolStateLibrary {
     // | Name                  | Type                                                                | Slot | Offset | Bytes | Contract                                    |
     // |-----------------------|---------------------------------------------------------------------|------|--------|-------|---------------------------------------------|
     // | pools                 | mapping(PoolId => struct Pool.State)                                | 8    | 0      | 32    | lib/v4-core/src/PoolManager.sol:PoolManager |
-    uint256 public constant POOLS_SLOT = 8;
+    uint256 public constant POOLS_SLOT = 7;
 
     // index of feeGrowthGlobal0X128 in Pool.State
     uint256 public constant FEE_GROWTH_GLOBAL0_OFFSET = 1;

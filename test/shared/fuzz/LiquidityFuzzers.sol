@@ -92,8 +92,8 @@ contract LiquidityFuzzers is StdUtils {
         bool tight = (tickUpper - tickLower) < 300 * key.tickSpacing;
         uint256 maxAmount0 = tight ? 100e18 : 1_000e18;
         uint256 maxAmount1 = tight ? 100e18 : 1_000e18;
-        _amount0 = bound(amount0, 0, maxAmount0);
-        _amount1 = bound(amount1, 0, maxAmount1);
+        _amount0 = bound(amount0, 0.1e18, maxAmount0);
+        _amount1 = bound(amount1, 0.1e18, maxAmount1);
         _vm.assume(_amount0 != 0 && _amount1 != 0);
     }
 

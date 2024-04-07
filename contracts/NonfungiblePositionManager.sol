@@ -94,15 +94,19 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
     // NOTE: more expensive since LiquidityAmounts is used onchain
     function mint(MintParams calldata params) external payable returns (uint256 tokenId, BalanceDelta delta) {
         (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(poolManager, params.range.key.toId());
-        (tokenId, delta) = mint(
-            params.range,
-            LiquidityAmounts.getLiquidityForAmounts(
+        console2.log(params.amount0Desired);
+        console2.log(params.amount1Desired);
+        uint256 liqDelta =             LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
                 TickMath.getSqrtRatioAtTick(params.range.tickLower),
                 TickMath.getSqrtRatioAtTick(params.range.tickUpper),
                 params.amount0Desired,
                 params.amount1Desired
-            ),
+            );
+        console2.log(liqDelta);
+        (tokenId, delta) = mint(
+            params.range,
+            liqDelta,
             params.deadline,
             params.recipient,
             params.hookData
