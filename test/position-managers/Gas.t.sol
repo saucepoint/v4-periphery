@@ -66,6 +66,20 @@ contract GasTest is Test, Deployers, GasSnapshot {
 
         // define a reusable range
         range = LiquidityRange({key: key, tickLower: -300, tickUpper: 300});
+
+        // Give tokens to Alice and Bob, with approvals
+        IERC20(Currency.unwrap(currency0)).transfer(alice, STARTING_USER_BALANCE);
+        IERC20(Currency.unwrap(currency1)).transfer(alice, STARTING_USER_BALANCE);
+        IERC20(Currency.unwrap(currency0)).transfer(bob, STARTING_USER_BALANCE);
+        IERC20(Currency.unwrap(currency1)).transfer(bob, STARTING_USER_BALANCE);
+        vm.startPrank(alice);
+        IERC20(Currency.unwrap(currency0)).approve(address(lpm), type(uint256).max);
+        IERC20(Currency.unwrap(currency1)).approve(address(lpm), type(uint256).max);
+        vm.stopPrank();
+        vm.startPrank(bob);
+        IERC20(Currency.unwrap(currency0)).approve(address(lpm), type(uint256).max);
+        IERC20(Currency.unwrap(currency1)).approve(address(lpm), type(uint256).max);
+        vm.stopPrank();
     }
 
     function test_gas_mint() public {
@@ -108,6 +122,31 @@ contract GasTest is Test, Deployers, GasSnapshot {
         snapEnd();
     }
 
+    function test_gas_increaseLiquidity_withFees_erc20() public {
+        (uint256 tokenId,) = lpm.mint(range, 10_000 ether, block.timestamp + 1, address(this), ZERO_BYTES);
+
+        // bob creates a position
+        vm.prank(bob);
+        lpm.mint(range, 2000 ether, block.timestamp + 1, bob, ZERO_BYTES);
+
+        // swap to create fees
+        uint256 swapAmount = 0.001e18;
+        swap(key, true, -int256(swapAmount), ZERO_BYTES);
+        swap(key, false, -int256(swapAmount), ZERO_BYTES); // move the price back
+
+        INonfungiblePositionManager.IncreaseLiquidityParams memory params = INonfungiblePositionManager
+            .IncreaseLiquidityParams({
+            tokenId: tokenId,
+            liquidityDelta: 1000 ether,
+            amount0Min: 0,
+            amount1Min: 0,
+            deadline: block.timestamp + 1
+        });
+        snapStart("increaseLiquidity_withFees_erc20");
+        lpm.increaseLiquidity(params, ZERO_BYTES, false);
+        snapEnd();
+    }
+
     function test_gas_increaseLiquidity_erc6909() public {
         (uint256 tokenId,) = lpm.mint(range, 10_000 ether, block.timestamp + 1, address(this), ZERO_BYTES);
 
@@ -137,6 +176,33 @@ contract GasTest is Test, Deployers, GasSnapshot {
             deadline: block.timestamp + 1
         });
         snapStart("decreaseLiquidity_erc20");
+        lpm.decreaseLiquidity(params, ZERO_BYTES, false);
+        snapEnd();
+    }
+
+    function test_gas_decreaseLiquidity_withFees_erc20() public {
+        (uint256 tokenId,) = lpm.mint(range, 10_000 ether, block.timestamp + 1, address(this), ZERO_BYTES);
+
+        // bob creates a position
+        vm.prank(bob);
+        lpm.mint(range, 2000 ether, block.timestamp + 1, bob, ZERO_BYTES);
+
+        // swap to create fees
+        uint256 swapAmount = 0.001e18;
+        swap(key, true, -int256(swapAmount), ZERO_BYTES);
+        swap(key, false, -int256(swapAmount), ZERO_BYTES); // move the price back
+
+        INonfungiblePositionManager.DecreaseLiquidityParams memory params = INonfungiblePositionManager
+            .DecreaseLiquidityParams({
+            tokenId: tokenId,
+            liquidityDelta: 10_000 ether,
+            amount0Min: 0,
+            amount1Min: 0,
+            recipient: address(this),
+            deadline: block.timestamp + 1
+        });
+
+        snapStart("decreaseLiquidity_withFees_erc20");
         lpm.decreaseLiquidity(params, ZERO_BYTES, false);
         snapEnd();
     }
