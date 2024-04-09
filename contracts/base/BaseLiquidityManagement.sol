@@ -46,13 +46,13 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         IPoolManager.ModifyLiquidityParams memory params,
         bytes calldata hookData,
         address owner
-    ) public payable override returns (BalanceDelta delta) {
+    ) public payable override returns (BalanceDelta delta, BalanceDelta feeDelta) {
         // if removing liquidity, check that the owner is the sender?
         if (params.liquidityDelta < 0) require(msg.sender == owner, "Cannot redeem position");
 
-        delta = abi.decode(
+        (delta, feeDelta) = abi.decode(
             poolManager.unlock(abi.encodeCall(this.handleModifyPosition, (msg.sender, key, params, hookData, false))),
-            (BalanceDelta)
+            (BalanceDelta, BalanceDelta)
         );
 
         params.liquidityDelta < 0
@@ -99,7 +99,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
     }
 
     function collect(LiquidityRange memory range, bytes calldata hookData) internal returns (BalanceDelta delta) {
-        delta = abi.decode(
+        (, delta) = abi.decode(
             poolManager.unlock(
                 abi.encodeCall(
                     this.handleModifyPosition,
@@ -116,7 +116,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
                     )
                 )
             ),
-            (BalanceDelta)
+            (BalanceDelta, BalanceDelta)
         );
     }
 
@@ -142,16 +142,16 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         IPoolManager.ModifyLiquidityParams calldata params,
         bytes calldata hookData,
         bool claims
-    ) external returns (BalanceDelta delta) {
+    ) external returns (BalanceDelta delta, BalanceDelta feeDelta) {
         console2.log("gee");
-        (delta, ) = poolManager.modifyLiquidity(key, params, hookData);
+        (delta, feeDelta) = poolManager.modifyLiquidity(key, params, hookData);
         console2.log("ree");
 
         if (params.liquidityDelta <= 0) {
             // removing liquidity/fees so mint tokens to the router
             // the router will be responsible for sending the tokens to the desired recipient
-            key.currency0.take(poolManager, address(this), uint128(delta.amount0()), true);
-            key.currency1.take(poolManager, address(this), uint128(delta.amount1()), true);
+            key.currency0.take(poolManager, address(this), uint128(delta.amount0()) + uint128(feeDelta.amount0()), true);
+            key.currency1.take(poolManager, address(this), uint128(delta.amount1()) + uint128(feeDelta.amount1()), true);
         } else {
             // adding liquidity so pay tokens
             key.currency0.settle(poolManager, sender, uint128(-delta.amount0()), claims);

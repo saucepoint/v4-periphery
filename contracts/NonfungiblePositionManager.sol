@@ -62,7 +62,7 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         address recipient,
         bytes calldata hookData
     ) public payable returns (uint256 tokenId, BalanceDelta delta) {
-        delta = BaseLiquidityManagement.modifyLiquidity(
+        (delta, ) = BaseLiquidityManagement.modifyLiquidity(
             range.key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: range.tickLower,
@@ -153,14 +153,14 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         require(params.liquidityDelta != 0, "Must decrease liquidity");
         Position storage position = positions[params.tokenId];
 
-        (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(poolManager, position.range.key.toId());
-        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
-            sqrtPriceX96,
-            TickMath.getSqrtRatioAtTick(position.range.tickLower),
-            TickMath.getSqrtRatioAtTick(position.range.tickUpper),
-            params.liquidityDelta
-        );
-        BaseLiquidityManagement.modifyLiquidity(
+        // (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(poolManager, position.range.key.toId());
+        // (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
+        //     sqrtPriceX96,
+        //     TickMath.getSqrtRatioAtTick(position.range.tickLower),
+        //     TickMath.getSqrtRatioAtTick(position.range.tickUpper),
+        //     params.liquidityDelta
+        // );
+        (BalanceDelta liquidityDelta, BalanceDelta feeDelta) = BaseLiquidityManagement.modifyLiquidity(
             position.range.key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: position.range.tickLower,
@@ -174,9 +174,10 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         require(params.amount1Min <= uint256(uint128(-delta.amount1())), "INSUFFICIENT_AMOUNT1");
 
         (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(position);
+
         // TODO: for now we'll assume user always collects the totality of their fees
-        token0Owed += (position.tokensOwed0 + uint128(amount0));
-        token1Owed += (position.tokensOwed1 + uint128(amount1));
+        token0Owed += (position.tokensOwed0 + uint128(liquidityDelta.amount0()));
+        token1Owed += (position.tokensOwed1 + uint128(liquidityDelta.amount1()));
 
         // TODO: does this account for 0 token transfers
         if (claims) {

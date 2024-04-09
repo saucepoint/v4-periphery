@@ -17,5 +17,5 @@ interface IBaseLiquidityManagement is IUnlockCallback {
         IPoolManager.ModifyLiquidityParams memory params,
         bytes calldata hookData,
         address owner
-    ) external payable returns (BalanceDelta delta);
+    ) external payable returns (BalanceDelta delta, BalanceDelta feeDelta);
 }
