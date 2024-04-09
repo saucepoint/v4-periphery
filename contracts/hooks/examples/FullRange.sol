@@ -293,7 +293,7 @@ contract FullRange is BaseHook {
         );
 
         params.liquidityDelta = -(liquidityToRemove.toInt256());
-        delta = poolManager.modifyLiquidity(key, params, ZERO_BYTES);
+        (delta, ) = poolManager.modifyLiquidity(key, params, ZERO_BYTES);
         pool.hasAccruedFees = false;
     }
 
@@ -305,7 +305,7 @@ contract FullRange is BaseHook {
             delta = _removeLiquidity(data.key, data.params);
             _takeDeltas(data.sender, data.key, delta);
         } else {
-            delta = poolManager.modifyLiquidity(data.key, data.params, ZERO_BYTES);
+            (delta,) = poolManager.modifyLiquidity(data.key, data.params, ZERO_BYTES);
             _settleDeltas(data.sender, data.key, delta);
         }
         return abi.encode(delta);
@@ -313,7 +313,7 @@ contract FullRange is BaseHook {
 
     function _rebalance(PoolKey memory key) public {
         PoolId poolId = key.toId();
-        BalanceDelta balanceDelta = poolManager.modifyLiquidity(
+        (BalanceDelta balanceDelta,) = poolManager.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: MIN_TICK,
@@ -349,7 +349,7 @@ contract FullRange is BaseHook {
             uint256(uint128(balanceDelta.amount1()))
         );
 
-        BalanceDelta balanceDeltaAfter = poolManager.modifyLiquidity(
+        (BalanceDelta balanceDeltaAfter,) = poolManager.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: MIN_TICK,

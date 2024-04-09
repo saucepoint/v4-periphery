@@ -144,7 +144,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         bool claims
     ) external returns (BalanceDelta delta) {
         console2.log("gee");
-        delta = poolManager.modifyLiquidity(key, params, hookData);
+        (delta, ) = poolManager.modifyLiquidity(key, params, hookData);
         console2.log("ree");
 
         if (params.liquidityDelta <= 0) {
@@ -168,17 +168,8 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         bool claims,
         BalanceDelta tokensOwed
     ) external returns (BalanceDelta delta) {
-        BalanceDelta feeDelta = poolManager.modifyLiquidity(
-            key,
-            IPoolManager.ModifyLiquidityParams({
-                tickLower: params.tickLower,
-                tickUpper: params.tickUpper,
-                liquidityDelta: 0
-            }),
-            hookData
-        );
-
-        poolManager.modifyLiquidity(key, params, hookData);
+        BalanceDelta feeDelta;
+        (delta, feeDelta) = poolManager.modifyLiquidity(key, params, hookData);
 
         {
             BalanceDelta excessFees = feeDelta - tokensOwed;

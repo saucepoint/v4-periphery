@@ -192,7 +192,7 @@ contract LimitOrder is BaseHook {
         onlyByManager
         returns (uint128 amount0, uint128 amount1)
     {
-        BalanceDelta delta = poolManager.modifyLiquidity(
+        (BalanceDelta delta,) = poolManager.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
@@ -254,7 +254,7 @@ contract LimitOrder is BaseHook {
         int256 liquidityDelta,
         address owner
     ) external selfOnly {
-        BalanceDelta delta = poolManager.modifyLiquidity(
+        (BalanceDelta delta,) = poolManager.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
@@ -330,7 +330,7 @@ contract LimitOrder is BaseHook {
         // could be unfairly diluted by a user sychronously placing then killing a limit order to skim off fees.
         // to prevent this, we allocate all fee revenue to remaining limit order placers, unless this is the last order.
         if (!removingAllLiquidity) {
-            BalanceDelta deltaFee = poolManager.modifyLiquidity(
+            (BalanceDelta deltaFee,) = poolManager.modifyLiquidity(
                 key,
                 IPoolManager.ModifyLiquidityParams({tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: 0}),
                 ZERO_BYTES
@@ -344,7 +344,7 @@ contract LimitOrder is BaseHook {
             }
         }
 
-        BalanceDelta delta = poolManager.modifyLiquidity(
+        (BalanceDelta delta, ) = poolManager.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: tickLower,
