@@ -153,13 +153,6 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         require(params.liquidityDelta != 0, "Must decrease liquidity");
         Position storage position = positions[params.tokenId];
 
-        // (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(poolManager, position.range.key.toId());
-        // (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
-        //     sqrtPriceX96,
-        //     TickMath.getSqrtRatioAtTick(position.range.tickLower),
-        //     TickMath.getSqrtRatioAtTick(position.range.tickUpper),
-        //     params.liquidityDelta
-        // );
         (BalanceDelta liquidityDelta, BalanceDelta feeDelta) = BaseLiquidityManagement.modifyLiquidity(
             position.range.key,
             IPoolManager.ModifyLiquidityParams({
