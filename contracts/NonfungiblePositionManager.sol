@@ -9,7 +9,7 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
-import {CurrencySettleTake} from "./libraries/CurrencySettleTake.sol";
+import {CurrencySettleTake} from "@uniswap/v4-core/src/libraries/CurrencySettleTake.sol";
 import {LiquidityRange, LiquidityRangeIdLibrary} from "./types/LiquidityRange.sol";
 import {BalanceDelta, toBalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 
@@ -153,7 +153,7 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         require(params.liquidityDelta != 0, "Must decrease liquidity");
         Position storage position = positions[params.tokenId];
 
-        (BalanceDelta liquidityDelta, BalanceDelta feeDelta) = BaseLiquidityManagement.modifyLiquidity(
+        (BalanceDelta callerDelta, BalanceDelta feeDelta) = BaseLiquidityManagement.modifyLiquidity(
             position.range.key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: position.range.tickLower,
@@ -169,8 +169,8 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(position);
 
         // TODO: for now we'll assume user always collects the totality of their fees
-        token0Owed += (position.tokensOwed0 + uint128(liquidityDelta.amount0()));
-        token1Owed += (position.tokensOwed1 + uint128(liquidityDelta.amount1()));
+        token0Owed += (position.tokensOwed0 + uint128(callerDelta.amount0()) - uint128(feeDelta.amount0()));
+        token1Owed += (position.tokensOwed1 + uint128(callerDelta.amount1()) - uint128(feeDelta.amount1()));
 
         // TODO: does this account for 0 token transfers
         if (claims) {

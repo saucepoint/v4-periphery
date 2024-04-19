@@ -13,7 +13,7 @@ import {ImmutableState} from "./ImmutableState.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {PoolStateLibrary} from "../libraries/PoolStateLibrary.sol";
 
-import {CurrencySettleTake} from "../libraries/CurrencySettleTake.sol";
+import {CurrencySettleTake} from "@uniswap/v4-core/src/libraries/CurrencySettleTake.sol";
 import {FeeMath} from "../libraries/FeeMath.sol";
 
 // TODO: remove
@@ -150,8 +150,8 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         if (params.liquidityDelta <= 0) {
             // removing liquidity/fees so mint tokens to the router
             // the router will be responsible for sending the tokens to the desired recipient
-            key.currency0.take(poolManager, address(this), uint128(delta.amount0()) + uint128(feeDelta.amount0()), true);
-            key.currency1.take(poolManager, address(this), uint128(delta.amount1()) + uint128(feeDelta.amount1()), true);
+            key.currency0.take(poolManager, address(this), uint128(delta.amount0()), true);
+            key.currency1.take(poolManager, address(this), uint128(delta.amount1()), true);
         } else {
             // adding liquidity so pay tokens
             key.currency0.settle(poolManager, sender, uint128(-delta.amount0()), claims);
