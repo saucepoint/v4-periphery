@@ -255,60 +255,61 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         bytes calldata hookData,
         uint256 tokenId
     ) external returns (BalanceDelta delta) {
+        // callerDelta: the delta after the hook has taken deltas; principal + feesAccrued - hookDelta
+        // feesAccrued: the fees accrued by PositionManager (for the given range)
         (BalanceDelta callerDelta, BalanceDelta feesAccrued) = poolManager.modifyLiquidity(key, params, hookData);
 
         Position storage position = positions[tokenId];
-        console2.log(feesAccrued.amount0());
-        console2.log(feesAccrued.amount1());
+
+        // claim all fees owed to the PositionManager
+        key.currency0.take(poolManager, address(this), uint256(int256(feesAccrued.amount0())), true);
+        key.currency1.take(poolManager, address(this), uint256(int256(feesAccrued.amount1())), true);
 
         {
+            // new fees owed to the user's since the last update
             (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(position);
-            console2.log("feesOwed0", token0Owed);
-            console2.log("feesOwed1", token1Owed);
 
-            if (callerDelta.amount0() < feesAccrued.amount0()) {
-                delta = toBalanceDelta(feesAccrued.amount0() - callerDelta.amount0(), delta.amount1());
-            } else {
-                // TODO: for now we'll assume user always collects the totality of their fees
-                // fees owed += unclaimed fees + principal
-                token0Owed += (position.tokensOwed0 + uint128(callerDelta.amount0()) - uint128(feesAccrued.amount0()));
-                delta = toBalanceDelta(int128(token0Owed), delta.amount1());
+            // pay out principal + fees to the user
+            if (callerDelta.amount0() > feesAccrued.amount0()) {
+                // (feesAccrued - tokensOwed) = external fees that should not be paid out
+                key.currency0.take(
+                    poolManager,
+                    sender,
+                    uint256(int256(callerDelta.amount0() - feesAccrued.amount0() - int128(token0Owed))),
+                    false
+                );
             }
-
-            if (callerDelta.amount1() < feesAccrued.amount1()) {
-                delta = toBalanceDelta(delta.amount0(), feesAccrued.amount1() - callerDelta.amount1());
-            } else {
-                // TODO: for now we'll assume user always collects the totality of their fees
-                // fees owed += unclaimed fees + principal
-                token1Owed += (position.tokensOwed1 + uint128(callerDelta.amount1()) - uint128(feesAccrued.amount1()));
-                delta = toBalanceDelta(delta.amount0(), int128(token1Owed));
+            if (callerDelta.amount0() > feesAccrued.amount1()) {
+                key.currency1.take(
+                    poolManager,
+                    sender,
+                    uint256(int256(callerDelta.amount1() - feesAccrued.amount1() - int128(token1Owed))),
+                    false
+                );
             }
         }
-
-        console2.log(sender);
-        console2.log(delta.amount0());
-        console2.log(delta.amount1());
-
-        if (delta.amount0() < 0) key.currency0.settle(poolManager, sender, uint256(int256(-delta.amount0())), false);
-        if (delta.amount1() < 0) key.currency1.settle(poolManager, sender, uint256(int256(-delta.amount1())), false);
-        if (delta.amount0() > 0) key.currency0.take(poolManager, sender, uint256(int256(delta.amount0())), false);
-        if (delta.amount1() > 0) key.currency1.take(poolManager, sender, uint256(int256(delta.amount1())), false);
 
         {
-            int128 unclaimedFees0 = callerDelta.amount0() - delta.amount0();
-            int128 unclaimedFees1 = callerDelta.amount1() - delta.amount1();
-            console2.log(unclaimedFees0);
-            console2.log(unclaimedFees1);
-            if (unclaimedFees0 > 0) {
-                key.currency0.take(poolManager, address(this), uint256(int256(unclaimedFees0)), true);
-            }
-            if (unclaimedFees0 > 0) {
-                key.currency1.take(poolManager, address(this), uint256(int256(unclaimedFees1)), true);
-            }
+            // settle any deltas
+            int256 currency0Delta = poolManager.currencyDelta(address(this), key.currency0);
+            int256 currency1Delta = poolManager.currencyDelta(address(this), key.currency1);
+            if (currency0Delta < 0) key.currency0.settle(poolManager, sender, uint256(-currency0Delta), false);
+            if (currency1Delta < 0) key.currency1.settle(poolManager, sender, uint256(-currency1Delta), false);
+            if (currency0Delta > 0) key.currency0.take(poolManager, sender, uint256(currency0Delta), false);
+            if (currency1Delta > 0) key.currency1.take(poolManager, sender, uint256(currency1Delta), false);
         }
 
-        position.tokensOwed0 = 0;
-        position.tokensOwed1 = 0;
+        {
+            // pay out unclaimed fees to the user
+            if (position.tokensOwed0 > 0) {
+                poolManager.transfer(sender, key.currency0.toId(), position.tokensOwed0);
+                position.tokensOwed0 = 0;
+            }
+            if (position.tokensOwed1 > 0) {
+                poolManager.transfer(sender, key.currency1.toId(), position.tokensOwed1);
+                position.tokensOwed1 = 0;
+            }
+        }
 
         // TODO: fix this
         // position.liquidity -= uint128(int128(params.liquidityDelta));
