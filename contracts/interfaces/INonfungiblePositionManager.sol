@@ -66,7 +66,7 @@ interface INonfungiblePositionManager is IBaseLiquidityManagement {
         address recipient;
     }
 
-    function decreaseLiquidity(DecreaseLiquidityParams memory params, bytes calldata hookData, bool claims)
+    function decreaseLiquidity(DecreaseLiquidityParams memory params, bytes calldata hookData)
         external
         returns (BalanceDelta delta);
 

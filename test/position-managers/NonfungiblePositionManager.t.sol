@@ -256,7 +256,7 @@ contract NonfungiblePositionManagerTest is Test, Deployers, GasSnapshot, Liquidi
             recipient: address(this),
             deadline: block.timestamp + 1
         });
-        BalanceDelta delta = lpm.decreaseLiquidity(params, ZERO_BYTES, false);
+        BalanceDelta delta = lpm.decreaseLiquidity(params, ZERO_BYTES);
         assertEq(lpm.liquidityOf(address(this), position.toId()), liquidityDelta - decreaseLiquidityDelta);
 
         assertEq(currency0.balanceOfSelf() - balance0Before, uint256(int256(-delta.amount0())));
@@ -294,7 +294,7 @@ contract NonfungiblePositionManagerTest is Test, Deployers, GasSnapshot, Liquidi
             recipient: address(this),
             deadline: block.timestamp + 1
         });
-        BalanceDelta delta = lpm.decreaseLiquidity(params, ZERO_BYTES, false);
+        BalanceDelta delta = lpm.decreaseLiquidity(params, ZERO_BYTES);
         assertEq(lpm.liquidityOf(address(this), position.toId()), liquidityDelta - decreaseLiquidityDelta, "GRR");
 
         // express key.fee as wad (i.e. 3000 = 0.003e18)

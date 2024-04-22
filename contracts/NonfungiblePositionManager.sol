@@ -62,7 +62,7 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         address recipient,
         bytes calldata hookData
     ) public payable returns (uint256 tokenId, BalanceDelta delta) {
-        (delta, ) = BaseLiquidityManagement.modifyLiquidity(
+        (delta,) = BaseLiquidityManagement.modifyLiquidity(
             range.key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: range.tickLower,
@@ -94,23 +94,14 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
     // NOTE: more expensive since LiquidityAmounts is used onchain
     function mint(MintParams calldata params) external payable returns (uint256 tokenId, BalanceDelta delta) {
         (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(poolManager, params.range.key.toId());
-        console2.log(params.amount0Desired);
-        console2.log(params.amount1Desired);
-        uint256 liqDelta =             LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(params.range.tickLower),
-                TickMath.getSqrtRatioAtTick(params.range.tickUpper),
-                params.amount0Desired,
-                params.amount1Desired
-            );
-        console2.log(liqDelta);
-        (tokenId, delta) = mint(
-            params.range,
-            liqDelta,
-            params.deadline,
-            params.recipient,
-            params.hookData
+        uint256 liqDelta = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(params.range.tickLower),
+            TickMath.getSqrtRatioAtTick(params.range.tickUpper),
+            params.amount0Desired,
+            params.amount1Desired
         );
+        (tokenId, delta) = mint(params.range, liqDelta, params.deadline, params.recipient, params.hookData);
         require(params.amount0Min <= uint256(uint128(delta.amount0())), "INSUFFICIENT_AMOUNT0");
         require(params.amount1Min <= uint256(uint128(delta.amount1())), "INSUFFICIENT_AMOUNT1");
     }
@@ -145,46 +136,32 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         position.liquidity += params.liquidityDelta;
     }
 
-    function decreaseLiquidity(DecreaseLiquidityParams memory params, bytes calldata hookData, bool claims)
+    function decreaseLiquidity(DecreaseLiquidityParams memory params, bytes calldata hookData)
         public
         isAuthorizedForToken(params.tokenId)
         returns (BalanceDelta delta)
     {
         require(params.liquidityDelta != 0, "Must decrease liquidity");
-        Position storage position = positions[params.tokenId];
-
-        (BalanceDelta callerDelta, BalanceDelta feeDelta) = BaseLiquidityManagement.modifyLiquidity(
-            position.range.key,
-            IPoolManager.ModifyLiquidityParams({
-                tickLower: position.range.tickLower,
-                tickUpper: position.range.tickUpper,
-                liquidityDelta: -int256(uint256(params.liquidityDelta))
-            }),
-            hookData,
-            ownerOf(params.tokenId)
+        LiquidityRange memory range = positions[params.tokenId].range;
+        delta = abi.decode(
+            poolManager.unlock(
+                abi.encodeCall(
+                    this.handleDecreaseLiquidity,
+                    (
+                        msg.sender,
+                        range.key,
+                        IPoolManager.ModifyLiquidityParams({
+                            tickLower: range.tickLower,
+                            tickUpper: range.tickUpper,
+                            liquidityDelta: -int256(uint256(params.liquidityDelta))
+                        }),
+                        hookData,
+                        params.tokenId
+                    )
+                )
+            ),
+            (BalanceDelta)
         );
-        require(params.amount0Min <= uint256(uint128(-delta.amount0())), "INSUFFICIENT_AMOUNT0");
-        require(params.amount1Min <= uint256(uint128(-delta.amount1())), "INSUFFICIENT_AMOUNT1");
-
-        (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(position);
-
-        // TODO: for now we'll assume user always collects the totality of their fees
-        token0Owed += (position.tokensOwed0 + uint128(callerDelta.amount0()) - uint128(feeDelta.amount0()));
-        token1Owed += (position.tokensOwed1 + uint128(callerDelta.amount1()) - uint128(feeDelta.amount1()));
-
-        // TODO: does this account for 0 token transfers
-        if (claims) {
-            poolManager.transfer(params.recipient, position.range.key.currency0.toId(), token0Owed);
-            poolManager.transfer(params.recipient, position.range.key.currency1.toId(), token1Owed);
-        } else {
-            sendToken(params.recipient, position.range.key.currency0, token0Owed);
-            sendToken(params.recipient, position.range.key.currency1, token1Owed);
-        }
-
-        position.tokensOwed0 = 0;
-        position.tokensOwed1 = 0;
-        position.liquidity -= params.liquidityDelta;
-        delta = toBalanceDelta(-int128(token0Owed), -int128(token1Owed));
     }
 
     function burn(uint256 tokenId, address recipient, bytes calldata hookData, bool claims)
@@ -204,8 +181,7 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
                     recipient: recipient,
                     deadline: block.timestamp
                 }),
-                hookData,
-                claims
+                hookData
             );
         }
 
@@ -269,5 +245,73 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
     modifier isAuthorizedForToken(uint256 tokenId) {
         require(_isApprovedOrOwner(msg.sender, tokenId), "Not approved");
         _;
+    }
+
+    // TODO: reorganize this better
+    function handleDecreaseLiquidity(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        bytes calldata hookData,
+        uint256 tokenId
+    ) external returns (BalanceDelta delta) {
+        (BalanceDelta callerDelta, BalanceDelta feesAccrued) = poolManager.modifyLiquidity(key, params, hookData);
+
+        Position storage position = positions[tokenId];
+        console2.log(feesAccrued.amount0());
+        console2.log(feesAccrued.amount1());
+
+        {
+            (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(position);
+            console2.log("feesOwed0", token0Owed);
+            console2.log("feesOwed1", token1Owed);
+
+            if (callerDelta.amount0() < feesAccrued.amount0()) {
+                delta = toBalanceDelta(feesAccrued.amount0() - callerDelta.amount0(), delta.amount1());
+            } else {
+                // TODO: for now we'll assume user always collects the totality of their fees
+                // fees owed += unclaimed fees + principal
+                token0Owed += (position.tokensOwed0 + uint128(callerDelta.amount0()) - uint128(feesAccrued.amount0()));
+                delta = toBalanceDelta(int128(token0Owed), delta.amount1());
+            }
+
+            if (callerDelta.amount1() < feesAccrued.amount1()) {
+                delta = toBalanceDelta(delta.amount0(), feesAccrued.amount1() - callerDelta.amount1());
+            } else {
+                // TODO: for now we'll assume user always collects the totality of their fees
+                // fees owed += unclaimed fees + principal
+                token1Owed += (position.tokensOwed1 + uint128(callerDelta.amount1()) - uint128(feesAccrued.amount1()));
+                delta = toBalanceDelta(delta.amount0(), int128(token1Owed));
+            }
+        }
+
+        console2.log(sender);
+        console2.log(delta.amount0());
+        console2.log(delta.amount1());
+
+        if (delta.amount0() < 0) key.currency0.settle(poolManager, sender, uint256(int256(-delta.amount0())), false);
+        if (delta.amount1() < 0) key.currency1.settle(poolManager, sender, uint256(int256(-delta.amount1())), false);
+        if (delta.amount0() > 0) key.currency0.take(poolManager, sender, uint256(int256(delta.amount0())), false);
+        if (delta.amount1() > 0) key.currency1.take(poolManager, sender, uint256(int256(delta.amount1())), false);
+
+        {
+            int128 unclaimedFees0 = callerDelta.amount0() - delta.amount0();
+            int128 unclaimedFees1 = callerDelta.amount1() - delta.amount1();
+            console2.log(unclaimedFees0);
+            console2.log(unclaimedFees1);
+            if (unclaimedFees0 > 0) {
+                key.currency0.take(poolManager, address(this), uint256(int256(unclaimedFees0)), true);
+            }
+            if (unclaimedFees0 > 0) {
+                key.currency1.take(poolManager, address(this), uint256(int256(unclaimedFees1)), true);
+            }
+        }
+
+        position.tokensOwed0 = 0;
+        position.tokensOwed1 = 0;
+
+        // TODO: fix this
+        // position.liquidity -= uint128(int128(params.liquidityDelta));
+        // liquidityOf[ownerOf(tokenId)][position.range.toId()] -= uint256(params.liquidityDelta);
     }
 }

@@ -30,7 +30,7 @@ abstract contract CallsWithLock is ICallsWithLock, ImmutableState {
         IPoolManager.ModifyLiquidityParams calldata params,
         bytes calldata hookData
     ) external onlyBySelf returns (bytes memory) {
-        (BalanceDelta delta, ) = poolManager.modifyLiquidity(key, params, hookData);
+        (BalanceDelta delta,) = poolManager.modifyLiquidity(key, params, hookData);
         return abi.encode(delta);
     }
 

@@ -176,7 +176,7 @@ contract GasTest is Test, Deployers, GasSnapshot {
             deadline: block.timestamp + 1
         });
         snapStart("decreaseLiquidity_erc20");
-        lpm.decreaseLiquidity(params, ZERO_BYTES, false);
+        lpm.decreaseLiquidity(params, ZERO_BYTES);
         snapEnd();
     }
 
@@ -203,7 +203,7 @@ contract GasTest is Test, Deployers, GasSnapshot {
         });
 
         snapStart("decreaseLiquidity_withFees_erc20");
-        lpm.decreaseLiquidity(params, ZERO_BYTES, false);
+        lpm.decreaseLiquidity(params, ZERO_BYTES);
         snapEnd();
     }
 
@@ -220,7 +220,7 @@ contract GasTest is Test, Deployers, GasSnapshot {
             deadline: block.timestamp + 1
         });
         snapStart("decreaseLiquidity_erc6909");
-        lpm.decreaseLiquidity(params, ZERO_BYTES, true);
+        lpm.decreaseLiquidity(params, ZERO_BYTES);
         snapEnd();
     }
 

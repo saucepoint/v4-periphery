@@ -279,8 +279,7 @@ contract FeeCollectionTest is Test, Deployers, GasSnapshot, LiquidityFuzzers {
                 deadline: block.timestamp + 1,
                 recipient: alice
             }),
-            ZERO_BYTES,
-            true
+            ZERO_BYTES
         );
         assertEq(uint256(uint128(-aliceDelta.amount0())), manager.balanceOf(alice, currency0.toId()));
         assertEq(uint256(uint128(-aliceDelta.amount1())), manager.balanceOf(alice, currency1.toId()));
@@ -296,8 +295,7 @@ contract FeeCollectionTest is Test, Deployers, GasSnapshot, LiquidityFuzzers {
                 deadline: block.timestamp + 1,
                 recipient: bob
             }),
-            ZERO_BYTES,
-            true
+            ZERO_BYTES
         );
         assertEq(uint256(uint128(-bobDelta.amount0())), manager.balanceOf(bob, currency0.toId()));
         assertEq(uint256(uint128(-bobDelta.amount1())), manager.balanceOf(bob, currency1.toId()));
@@ -340,8 +338,7 @@ contract FeeCollectionTest is Test, Deployers, GasSnapshot, LiquidityFuzzers {
                 deadline: block.timestamp + 1,
                 recipient: alice
             }),
-            ZERO_BYTES,
-            true
+            ZERO_BYTES
         );
 
         uint256 tolerance = 0.000000001 ether;
@@ -371,8 +368,7 @@ contract FeeCollectionTest is Test, Deployers, GasSnapshot, LiquidityFuzzers {
                 deadline: block.timestamp + 1,
                 recipient: bob
             }),
-            ZERO_BYTES,
-            true
+            ZERO_BYTES
         );
 
         // bob claims half of the original principal + his fees
