@@ -299,33 +299,22 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
             int256 currency1Delta = poolManager.currencyDelta(address(this), key.currency1);
             if (currency0Delta < 0) key.currency0.settle(poolManager, sender, uint256(-currency0Delta), false);
             if (currency1Delta < 0) key.currency1.settle(poolManager, sender, uint256(-currency1Delta), false);
-            if (currency0Delta > 0) {
-                console2.log(tokensOwed.amount0());
-                key.currency0.take(poolManager, sender, uint256(currency0Delta), false);
-
-                if (int128(currency0Delta) < tokensOwed.amount1()) {
-                    position.tokensOwed0 += (uint128(tokensOwed.amount1()) - uint128(int128(currency0Delta)));
-                }
-            }
-            if (currency1Delta > 0) {
-                key.currency1.take(poolManager, sender, uint256(currency1Delta), false);
-
-                if (int128(currency1Delta) < tokensOwed.amount1()) {
-                    position.tokensOwed1 += (uint128(tokensOwed.amount1()) - uint128(int128(currency1Delta)));
-                }
-            }
         }
 
+
+        // notes: alice is being charged correctly
+        // alice is claiming bob's fees to the position manager
+        // TODO: figure out how to send bob's fees from the position manager, without sending alice's fees
         // pay out unclaimed fees to the user
         {
             if (position.tokensOwed0 > 0) {
                 console2.log(position.tokensOwed0);
                 console2.log(key.currency0.balanceOf(address(this)));
-                IERC20(Currency.unwrap(key.currency0)).transfer(sender, position.tokensOwed0);
+                IERC20(Currency.unwrap(key.currency0)).transfer(sender, position.tokensOwed0 + uint128(tokensOwed.amount0()));
                 position.tokensOwed0 = 0;
             }
             if (position.tokensOwed1 > 0) {
-                IERC20(Currency.unwrap(key.currency1)).transfer(sender, position.tokensOwed1);
+                IERC20(Currency.unwrap(key.currency1)).transfer(sender, position.tokensOwed1 + uint128(tokensOwed.amount1()));
                 position.tokensOwed1 = 0;
             }
         }
