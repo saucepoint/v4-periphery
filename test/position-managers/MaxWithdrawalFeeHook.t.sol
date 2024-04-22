@@ -115,9 +115,16 @@ contract MaxWithdrawalFeeHookTest is Test, Deployers, GasSnapshot, LiquidityFuzz
         swap(key, true, -int256(swapAmount), ZERO_BYTES);
         swap(key, false, -int256(swapAmount), ZERO_BYTES); // move the price back
 
+        uint256 balance0BeforeAlice = currency0.balanceOf(alice);
+        uint256 balance1BeforeAlice = currency1.balanceOf(alice);
+
         // alice withdraws her position and gets fully penalized
+        // alice will pay tokens to offset the hook taking bob's fees
         vm.prank(alice);
         lpm.burn(tokenIdAlice, alice, abi.encode(true), false);
+
+        assertGt(balance0BeforeAlice, currency0.balanceOf(alice));
+        assertGt(balance1BeforeAlice, currency1.balanceOf(alice));
 
         uint256 balance0BeforeBob = currency0.balanceOf(bob);
         uint256 balance1BeforeBob = currency1.balanceOf(bob);

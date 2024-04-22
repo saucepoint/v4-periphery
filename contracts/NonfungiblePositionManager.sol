@@ -18,6 +18,8 @@ import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {FeeMath} from "./libraries/FeeMath.sol";
 import {PoolStateLibrary} from "./libraries/PoolStateLibrary.sol";
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+
 // TODO: remove
 import {console2} from "forge-std/console2.sol";
 
@@ -114,7 +116,7 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         require(params.liquidityDelta != 0, "Must increase liquidity");
         Position storage position = positions[params.tokenId];
 
-        (uint256 token0Owed, uint256 token1Owed) = _updateFeeGrowth(position);
+        BalanceDelta tokensOwed = _updateFeeGrowth(position);
 
         delta = BaseLiquidityManagement.increaseLiquidity(
             position.range.key,
@@ -126,8 +128,8 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
             hookData,
             claims,
             ownerOf(params.tokenId),
-            token0Owed,
-            token1Owed
+            uint128(tokensOwed.amount0()),
+            uint128(tokensOwed.amount1())
         );
         // TODO: slippage checks & test
 
@@ -143,24 +145,21 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
     {
         require(params.liquidityDelta != 0, "Must decrease liquidity");
         LiquidityRange memory range = positions[params.tokenId].range;
-        delta = abi.decode(
-            poolManager.unlock(
-                abi.encodeCall(
-                    this.handleDecreaseLiquidity,
-                    (
-                        msg.sender,
-                        range.key,
-                        IPoolManager.ModifyLiquidityParams({
-                            tickLower: range.tickLower,
-                            tickUpper: range.tickUpper,
-                            liquidityDelta: -int256(uint256(params.liquidityDelta))
-                        }),
-                        hookData,
-                        params.tokenId
-                    )
+        poolManager.unlock(
+            abi.encodeCall(
+                this.handleDecreaseLiquidity,
+                (
+                    msg.sender,
+                    range.key,
+                    IPoolManager.ModifyLiquidityParams({
+                        tickLower: range.tickLower,
+                        tickUpper: range.tickUpper,
+                        liquidityDelta: -int256(uint256(params.liquidityDelta))
+                    }),
+                    hookData,
+                    params.tokenId
                 )
-            ),
-            (BalanceDelta)
+            )
         );
     }
 
@@ -200,16 +199,15 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         Position storage position = positions[tokenId];
         BaseLiquidityManagement.collect(position.range, hookData);
 
-        (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(position);
-        delta = toBalanceDelta(int128(token0Owed), int128(token1Owed));
+        delta = _updateFeeGrowth(position);
 
         // TODO: for now we'll assume user always collects the totality of their fees
         if (claims) {
-            poolManager.transfer(recipient, position.range.key.currency0.toId(), token0Owed + position.tokensOwed0);
-            poolManager.transfer(recipient, position.range.key.currency1.toId(), token1Owed + position.tokensOwed1);
+            poolManager.transfer(recipient, position.range.key.currency0.toId(), uint128(delta.amount0()) + position.tokensOwed0);
+            poolManager.transfer(recipient, position.range.key.currency1.toId(), uint128(delta.amount1()) + position.tokensOwed1);
         } else {
-            sendToken(recipient, position.range.key.currency0, token0Owed + position.tokensOwed0);
-            sendToken(recipient, position.range.key.currency1, token1Owed + position.tokensOwed1);
+            sendToken(recipient, position.range.key.currency0, uint128(delta.amount0()) + position.tokensOwed0);
+            sendToken(recipient, position.range.key.currency1, uint128(delta.amount1()) + position.tokensOwed1);
         }
 
         position.tokensOwed0 = 0;
@@ -218,18 +216,19 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         // TODO: event
     }
 
-    function _updateFeeGrowth(Position storage position) internal returns (uint128 token0Owed, uint128 token1Owed) {
+    function _updateFeeGrowth(Position storage position) internal returns (BalanceDelta tokensOwed) {
         (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) = poolManager.getFeeGrowthInside(
             position.range.key.toId(), position.range.tickLower, position.range.tickUpper
         );
 
-        (token0Owed, token1Owed) = FeeMath.getFeesOwed(
+        (uint128 token0Owed, uint128 token1Owed) = FeeMath.getFeesOwed(
             feeGrowthInside0X128,
             feeGrowthInside1X128,
             position.feeGrowthInside0LastX128,
             position.feeGrowthInside1LastX128,
             position.liquidity
         );
+        tokensOwed = toBalanceDelta(int128(token0Owed), int128(token1Owed));
 
         position.feeGrowthInside0LastX128 = feeGrowthInside0X128;
         position.feeGrowthInside1LastX128 = feeGrowthInside1X128;
@@ -254,28 +253,31 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         IPoolManager.ModifyLiquidityParams calldata params,
         bytes calldata hookData,
         uint256 tokenId
-    ) external returns (BalanceDelta delta) {
+    ) external {
         // callerDelta: the delta after the hook has taken deltas; principal + feesAccrued - hookDelta
         // feesAccrued: the fees accrued by PositionManager (for the given range)
         (BalanceDelta callerDelta, BalanceDelta feesAccrued) = poolManager.modifyLiquidity(key, params, hookData);
 
         Position storage position = positions[tokenId];
 
-        // claim all fees owed to the PositionManager
-        key.currency0.take(poolManager, address(this), uint256(int256(feesAccrued.amount0())), true);
-        key.currency1.take(poolManager, address(this), uint256(int256(feesAccrued.amount1())), true);
+        console2.log(sender);
 
+        // new fees owed to the user's since the last update
+        BalanceDelta tokensOwed = _updateFeeGrowth(position);
+
+        // claim external fees owed to the PositionManager
+        if (feesAccrued.amount0() > tokensOwed.amount0()) key.currency0.take(poolManager, address(this), uint256(int256(feesAccrued.amount0() - tokensOwed.amount0())), false);
+        if (feesAccrued.amount1() > tokensOwed.amount1()) key.currency1.take(poolManager, address(this), uint256(int256(feesAccrued.amount1() - tokensOwed.amount1())), false);
+
+        // pay out remaining principal + fees to the user
+        console2.log("A");
         {
-            // new fees owed to the user's since the last update
-            (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(position);
-
-            // pay out principal + fees to the user
             if (callerDelta.amount0() > feesAccrued.amount0()) {
                 // (feesAccrued - tokensOwed) = external fees that should not be paid out
                 key.currency0.take(
                     poolManager,
                     sender,
-                    uint256(int256(callerDelta.amount0() - feesAccrued.amount0() - int128(token0Owed))),
+                    uint256(int256(callerDelta.amount0() - (feesAccrued.amount0()))),
                     false
                 );
             }
@@ -283,30 +285,47 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
                 key.currency1.take(
                     poolManager,
                     sender,
-                    uint256(int256(callerDelta.amount1() - feesAccrued.amount1() - int128(token1Owed))),
+                    uint256(int256(callerDelta.amount1() - (feesAccrued.amount1()))),
                     false
                 );
             }
         }
 
+        // settle any deltas
+        console2.log("B");
         {
-            // settle any deltas
             int256 currency0Delta = poolManager.currencyDelta(address(this), key.currency0);
+            console2.log(currency0Delta);
             int256 currency1Delta = poolManager.currencyDelta(address(this), key.currency1);
             if (currency0Delta < 0) key.currency0.settle(poolManager, sender, uint256(-currency0Delta), false);
             if (currency1Delta < 0) key.currency1.settle(poolManager, sender, uint256(-currency1Delta), false);
-            if (currency0Delta > 0) key.currency0.take(poolManager, sender, uint256(currency0Delta), false);
-            if (currency1Delta > 0) key.currency1.take(poolManager, sender, uint256(currency1Delta), false);
+            if (currency0Delta > 0) {
+                console2.log(tokensOwed.amount0());
+                key.currency0.take(poolManager, sender, uint256(currency0Delta), false);
+
+                if (int128(currency0Delta) < tokensOwed.amount1()) {
+                    position.tokensOwed0 += (uint128(tokensOwed.amount1()) - uint128(int128(currency0Delta)));
+                }
+            }
+            if (currency1Delta > 0) {
+                key.currency1.take(poolManager, sender, uint256(currency1Delta), false);
+
+                if (int128(currency1Delta) < tokensOwed.amount1()) {
+                    position.tokensOwed1 += (uint128(tokensOwed.amount1()) - uint128(int128(currency1Delta)));
+                }
+            }
         }
 
+        // pay out unclaimed fees to the user
         {
-            // pay out unclaimed fees to the user
             if (position.tokensOwed0 > 0) {
-                poolManager.transfer(sender, key.currency0.toId(), position.tokensOwed0);
+                console2.log(position.tokensOwed0);
+                console2.log(key.currency0.balanceOf(address(this)));
+                IERC20(Currency.unwrap(key.currency0)).transfer(sender, position.tokensOwed0);
                 position.tokensOwed0 = 0;
             }
             if (position.tokensOwed1 > 0) {
-                poolManager.transfer(sender, key.currency1.toId(), position.tokensOwed1);
+                IERC20(Currency.unwrap(key.currency1)).transfer(sender, position.tokensOwed1);
                 position.tokensOwed1 = 0;
             }
         }
