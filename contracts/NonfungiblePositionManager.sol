@@ -260,8 +260,6 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
 
         Position storage position = positions[tokenId];
 
-        console2.log(sender);
-
         // new fees owed to the user's since the last update
         BalanceDelta tokensOwed = _updateFeeGrowth(position);
 
@@ -269,11 +267,9 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         if (feesAccrued.amount0() > tokensOwed.amount0()) key.currency0.take(poolManager, address(this), uint256(int256(feesAccrued.amount0() - tokensOwed.amount0())), false);
         if (feesAccrued.amount1() > tokensOwed.amount1()) key.currency1.take(poolManager, address(this), uint256(int256(feesAccrued.amount1() - tokensOwed.amount1())), false);
 
-        // pay out remaining principal + fees to the user
-        console2.log("A");
+        // pay out remaining principal to the user
         {
             if (callerDelta.amount0() > feesAccrued.amount0()) {
-                // (feesAccrued - tokensOwed) = external fees that should not be paid out
                 key.currency0.take(
                     poolManager,
                     sender,
@@ -292,28 +288,26 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         }
 
         // settle any deltas
-        console2.log("B");
         {
             int256 currency0Delta = poolManager.currencyDelta(address(this), key.currency0);
-            console2.log(currency0Delta);
             int256 currency1Delta = poolManager.currencyDelta(address(this), key.currency1);
             if (currency0Delta < 0) key.currency0.settle(poolManager, sender, uint256(-currency0Delta), false);
             if (currency1Delta < 0) key.currency1.settle(poolManager, sender, uint256(-currency1Delta), false);
         }
 
 
-        // notes: alice is being charged correctly
-        // alice is claiming bob's fees to the position manager
-        // TODO: figure out how to send bob's fees from the position manager, without sending alice's fees
         // pay out unclaimed fees to the user
+        // i feel like this condition is very brittle, and doesnt make much sense
+        // the problem is:
+        // 1. Alice withdraws and incurs a penalty, bob's fees are custodied by the position manager
+        // 2. Bob withdraws and does *NOT* incur a penalty. His fees custodied by the position manager must be paid out
+        //    and we must include logic in a way that does not pay out Alice's fees in step 1
         {
-            if (position.tokensOwed0 > 0) {
-                console2.log(position.tokensOwed0);
-                console2.log(key.currency0.balanceOf(address(this)));
+            if (position.tokensOwed0 > 0 || callerDelta.amount0() > tokensOwed.amount0()) {
                 IERC20(Currency.unwrap(key.currency0)).transfer(sender, position.tokensOwed0 + uint128(tokensOwed.amount0()));
                 position.tokensOwed0 = 0;
             }
-            if (position.tokensOwed1 > 0) {
+            if (position.tokensOwed1 > 0 || callerDelta.amount1() > tokensOwed.amount1()) {
                 IERC20(Currency.unwrap(key.currency1)).transfer(sender, position.tokensOwed1 + uint128(tokensOwed.amount1()));
                 position.tokensOwed1 = 0;
             }
