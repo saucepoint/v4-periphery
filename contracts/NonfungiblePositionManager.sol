@@ -16,7 +16,7 @@ import {BalanceDelta, toBalanceDelta} from "@uniswap/v4-core/src/types/BalanceDe
 import {LiquidityAmounts} from "./libraries/LiquidityAmounts.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {FeeMath} from "./libraries/FeeMath.sol";
-import {PoolStateLibrary} from "./libraries/PoolStateLibrary.sol";
+import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
 // TODO: remove
 import {console2} from "forge-std/console2.sol";
@@ -26,7 +26,7 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
     using CurrencySettleTake for Currency;
     using PoolIdLibrary for PoolKey;
     using LiquidityRangeIdLibrary for LiquidityRange;
-    using PoolStateLibrary for IPoolManager;
+    using StateLibrary for IPoolManager;
     /// @dev The ID of the next token that will be minted. Skips 0
 
     uint256 private _nextId = 1;
@@ -94,7 +94,7 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
 
     // NOTE: more expensive since LiquidityAmounts is used onchain
     function mint(MintParams calldata params) external payable returns (uint256 tokenId, BalanceDelta delta) {
-        (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(poolManager, params.range.key.toId());
+        (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(poolManager, params.range.key.toId());
         (tokenId, delta) = mint(
             params.range,
             LiquidityAmounts.getLiquidityForAmounts(
@@ -151,7 +151,7 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         require(params.liquidityDelta != 0, "Must decrease liquidity");
         Position storage position = positions[params.tokenId];
 
-        (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(poolManager, position.range.key.toId());
+        (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(poolManager, position.range.key.toId());
         (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
             sqrtPriceX96,
             TickMath.getSqrtPriceAtTick(position.range.tickLower),

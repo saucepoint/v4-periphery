@@ -15,7 +15,7 @@ import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import {LiquidityAmounts} from "../../contracts/libraries/LiquidityAmounts.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
-import {PoolStateLibrary} from "../../contracts/libraries/PoolStateLibrary.sol";
+import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -102,7 +102,7 @@ contract FeeCollectionTest is Test, Deployers, GasSnapshot, LiquidityFuzzers {
         console2.log("token0Owed", token0Owed);
         console2.log("token1Owed", token1Owed);
 
-        (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(manager, range.key.toId());
+        (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(manager, range.key.toId());
         uint256 liquidityDelta = LiquidityAmounts.getLiquidityForAmounts(
             sqrtPriceX96,
             TickMath.getSqrtPriceAtTick(range.tickLower),
@@ -150,7 +150,7 @@ contract FeeCollectionTest is Test, Deployers, GasSnapshot, LiquidityFuzzers {
         // alice will half of her fees to increase liquidity
         (uint256 token0Owed, uint256 token1Owed) = lpm.feesOwed(tokenIdAlice);
         {
-            (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(manager, range.key.toId());
+            (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(manager, range.key.toId());
             uint256 liquidityDelta = LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
                 TickMath.getSqrtPriceAtTick(range.tickLower),
@@ -237,7 +237,7 @@ contract FeeCollectionTest is Test, Deployers, GasSnapshot, LiquidityFuzzers {
         // alice will use all of her fees + additional capital to increase liquidity
         (uint256 token0Owed, uint256 token1Owed) = lpm.feesOwed(tokenIdAlice);
         {
-            (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(manager, range.key.toId());
+            (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(manager, range.key.toId());
             uint256 liquidityDelta = LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
                 TickMath.getSqrtPriceAtTick(range.tickLower),

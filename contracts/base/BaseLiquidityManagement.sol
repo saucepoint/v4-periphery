@@ -12,7 +12,7 @@ import {IBaseLiquidityManagement} from "../interfaces/IBaseLiquidityManagement.s
 import {SafeCallback} from "./SafeCallback.sol";
 import {ImmutableState} from "./ImmutableState.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {PoolStateLibrary} from "../libraries/PoolStateLibrary.sol";
+import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
 import {CurrencySettleTake} from "../libraries/CurrencySettleTake.sol";
 import {FeeMath} from "../libraries/FeeMath.sol";
@@ -25,7 +25,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
     using CurrencyLibrary for Currency;
     using CurrencySettleTake for Currency;
     using PoolIdLibrary for PoolKey;
-    using PoolStateLibrary for IPoolManager;
+    using StateLibrary for IPoolManager;
     using TransientStateLibrary for IPoolManager;
 
     error LockFailure();
