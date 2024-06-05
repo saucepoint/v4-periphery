@@ -5,10 +5,10 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
-import {ILockCallback} from "@uniswap/v4-core/src/interfaces/callback/ILockCallback.sol";
+import {IUnlockCallback} from "@uniswap/v4-core/src/interfaces/callback/IUnlockCallback.sol";
 import {LiquidityRange, LiquidityRangeId} from "../types/LiquidityRange.sol";
 
-interface IBaseLiquidityManagement is ILockCallback {
+interface IBaseLiquidityManagement is IUnlockCallback {
     function liquidityOf(address owner, LiquidityRangeId positionId) external view returns (uint256 liquidity);
 
     // NOTE: handles add/remove/collect

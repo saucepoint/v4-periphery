@@ -42,7 +42,7 @@ contract NonfungiblePositionManagerTest is Test, Deployers, GasSnapshot, Liquidi
         Deployers.deployFreshManagerAndRouters();
         Deployers.deployMintAndApprove2Currencies();
 
-        (key, poolId) = initPool(currency0, currency1, IHooks(address(0)), 3000, SQRT_RATIO_1_1, ZERO_BYTES);
+        (key, poolId) = initPool(currency0, currency1, IHooks(address(0)), 3000, SQRT_PRICE_1_1, ZERO_BYTES);
 
         lpm = new NonfungiblePositionManager(manager);
 
@@ -184,7 +184,8 @@ contract NonfungiblePositionManagerTest is Test, Deployers, GasSnapshot, Liquidi
             IPoolManager.ModifyLiquidityParams({
                 tickLower: TickMath.minUsableTick(key.tickSpacing),
                 tickUpper: TickMath.maxUsableTick(key.tickSpacing),
-                liquidityDelta: 100_000e18
+                liquidityDelta: 100_000e18,
+                salt: 0
             }),
             ZERO_BYTES
         );

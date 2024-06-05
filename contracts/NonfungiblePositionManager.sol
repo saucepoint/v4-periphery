@@ -67,7 +67,8 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
             IPoolManager.ModifyLiquidityParams({
                 tickLower: range.tickLower,
                 tickUpper: range.tickUpper,
-                liquidityDelta: int256(liquidity)
+                liquidityDelta: int256(liquidity),
+                salt: 0
             }),
             hookData,
             recipient
@@ -98,8 +99,8 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
             params.range,
             LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(params.range.tickLower),
-                TickMath.getSqrtRatioAtTick(params.range.tickUpper),
+                TickMath.getSqrtPriceAtTick(params.range.tickLower),
+                TickMath.getSqrtPriceAtTick(params.range.tickUpper),
                 params.amount0Desired,
                 params.amount1Desired
             ),
@@ -126,7 +127,8 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
             IPoolManager.ModifyLiquidityParams({
                 tickLower: position.range.tickLower,
                 tickUpper: position.range.tickUpper,
-                liquidityDelta: int256(uint256(params.liquidityDelta))
+                liquidityDelta: int256(uint256(params.liquidityDelta)),
+                salt: 0
             }),
             hookData,
             claims,
@@ -152,8 +154,8 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
         (uint160 sqrtPriceX96,,,) = PoolStateLibrary.getSlot0(poolManager, position.range.key.toId());
         (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
             sqrtPriceX96,
-            TickMath.getSqrtRatioAtTick(position.range.tickLower),
-            TickMath.getSqrtRatioAtTick(position.range.tickUpper),
+            TickMath.getSqrtPriceAtTick(position.range.tickLower),
+            TickMath.getSqrtPriceAtTick(position.range.tickUpper),
             params.liquidityDelta
         );
         BaseLiquidityManagement.modifyLiquidity(
@@ -161,7 +163,8 @@ contract NonfungiblePositionManager is BaseLiquidityManagement, INonfungiblePosi
             IPoolManager.ModifyLiquidityParams({
                 tickLower: position.range.tickLower,
                 tickUpper: position.range.tickUpper,
-                liquidityDelta: -int256(uint256(params.liquidityDelta))
+                liquidityDelta: -int256(uint256(params.liquidityDelta)),
+                salt: 0
             }),
             hookData,
             ownerOf(params.tokenId)

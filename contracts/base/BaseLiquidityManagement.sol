@@ -6,6 +6,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {BalanceDelta, toBalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
+import {TransientStateLibrary} from "@uniswap/v4-core/src/libraries/TransientStateLibrary.sol";
 import {LiquidityRange, LiquidityRangeId, LiquidityRangeIdLibrary} from "../types/LiquidityRange.sol";
 import {IBaseLiquidityManagement} from "../interfaces/IBaseLiquidityManagement.sol";
 import {SafeCallback} from "./SafeCallback.sol";
@@ -25,6 +26,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
     using CurrencySettleTake for Currency;
     using PoolIdLibrary for PoolKey;
     using PoolStateLibrary for IPoolManager;
+    using TransientStateLibrary for IPoolManager;
 
     error LockFailure();
 
@@ -51,7 +53,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         if (params.liquidityDelta < 0) require(msg.sender == owner, "Cannot redeem position");
 
         delta = abi.decode(
-            poolManager.lock(abi.encodeCall(this.handleModifyPosition, (msg.sender, key, params, hookData, false))),
+            poolManager.unlock(abi.encodeCall(this.handleModifyPosition, (msg.sender, key, params, hookData, false))),
             (BalanceDelta)
         );
 
@@ -78,7 +80,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         uint256 token1Owed
     ) internal returns (BalanceDelta delta) {
         delta = abi.decode(
-            poolManager.lock(
+            poolManager.unlock(
                 abi.encodeCall(
                     this.handleIncreaseLiquidity,
                     (
@@ -100,7 +102,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
 
     function collect(LiquidityRange memory range, bytes calldata hookData) internal returns (BalanceDelta delta) {
         delta = abi.decode(
-            poolManager.lock(
+            poolManager.unlock(
                 abi.encodeCall(
                     this.handleModifyPosition,
                     (
@@ -109,7 +111,8 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
                         IPoolManager.ModifyLiquidityParams({
                             tickLower: range.tickLower,
                             tickUpper: range.tickUpper,
-                            liquidityDelta: 0
+                            liquidityDelta: 0,
+                            salt: 0
                         }),
                         hookData,
                         true
@@ -121,10 +124,10 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
     }
 
     function sendToken(address recipient, Currency currency, uint256 amount) internal {
-        poolManager.lock(abi.encodeCall(this.handleRedeemClaim, (recipient, currency, amount)));
+        poolManager.unlock(abi.encodeCall(this.handleRedeemClaim, (recipient, currency, amount)));
     }
 
-    function _lockAcquired(bytes calldata data) internal override returns (bytes memory) {
+    function _unlockCallback(bytes calldata data) internal override returns (bytes memory) {
         (bool success, bytes memory returnData) = address(this).call(data);
         if (success) return returnData;
         if (returnData.length == 0) revert LockFailure();
@@ -143,7 +146,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         bytes calldata hookData,
         bool claims
     ) external returns (BalanceDelta delta) {
-        delta = poolManager.modifyLiquidity(key, params, hookData);
+        (delta,) = poolManager.modifyLiquidity(key, params, hookData);
 
         if (params.liquidityDelta <= 0) {
             // removing liquidity/fees so mint tokens to the router
@@ -166,12 +169,13 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         bool claims,
         BalanceDelta tokensOwed
     ) external returns (BalanceDelta delta) {
-        BalanceDelta feeDelta = poolManager.modifyLiquidity(
+        (,BalanceDelta feeDelta) = poolManager.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: params.tickLower,
                 tickUpper: params.tickUpper,
-                liquidityDelta: 0
+                liquidityDelta: 0,
+                salt: 0
             }),
             hookData
         );
