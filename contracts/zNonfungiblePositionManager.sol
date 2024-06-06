@@ -114,6 +114,11 @@ contract zNonfungiblePositionManager is zBaseLiquidityManagement, ERC721 {
         delta = _collect(tokenPositions[tokenId].range, hookData, claims, msg.sender);
     }
 
+    function feesOwed(uint256 tokenId) external view returns (uint256 token0Owed, uint256 token1Owed) {
+        TokenPosition memory tokenPosition = tokenPositions[tokenId];
+        return feesOwed(tokenPosition.owner, tokenPosition.range);
+    }
+
     function _afterTokenTransfer(address from, address to, uint256 firstTokenId, uint256 batchSize) internal override {
         TokenPosition storage tokenPosition = tokenPositions[firstTokenId];
         LiquidityRangeId rangeId = tokenPosition.range.toId();

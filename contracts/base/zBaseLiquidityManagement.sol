@@ -72,7 +72,7 @@ abstract contract zBaseLiquidityManagement is BaseLiquidityHandler {
 
     // --- View Functions --- //
     function feesOwed(address owner, LiquidityRange memory range)
-        external
+        public
         view
         returns (uint256 token0Owed, uint256 token1Owed)
     {
