@@ -295,11 +295,7 @@ contract FullRange is BaseHook {
         pool.hasAccruedFees = false;
     }
 
-    function _unlockCallback(bytes calldata rawData)
-        internal
-        override
-        returns (bytes memory)
-    {
+    function _unlockCallback(bytes calldata rawData) internal override returns (bytes memory) {
         CallbackData memory data = abi.decode(rawData, (CallbackData));
         BalanceDelta delta;
 

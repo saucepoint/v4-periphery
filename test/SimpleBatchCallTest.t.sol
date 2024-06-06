@@ -38,8 +38,7 @@ contract SimpleBatchCallTest is Test, Deployers {
     function test_initialize() public {
         bytes[] memory calls = new bytes[](1);
         calls[0] = abi.encodeWithSelector(ICallsWithLock.initializeWithLock.selector, key, SQRT_PRICE_1_1, ZERO_BYTES);
-        bytes memory settleData =
-            abi.encode(SimpleBatchCall.SettleConfig({takeClaims: false, settleUsingBurn: false}));
+        bytes memory settleData = abi.encode(SimpleBatchCall.SettleConfig({takeClaims: false, settleUsingBurn: false}));
         batchCall.execute(abi.encode(calls), ZERO_BYTES);
 
         (uint160 sqrtPriceX96,,,) = manager.getSlot0(key.toId());
@@ -58,9 +57,8 @@ contract SimpleBatchCallTest is Test, Deployers {
         Currency[] memory currenciesTouched = new Currency[](2);
         currenciesTouched[0] = currency0;
         currenciesTouched[1] = currency1;
-        bytes memory settleData = abi.encode(
-            currenciesTouched, SimpleBatchCall.SettleConfig({takeClaims: false, settleUsingBurn: false})
-        );
+        bytes memory settleData =
+            abi.encode(currenciesTouched, SimpleBatchCall.SettleConfig({takeClaims: false, settleUsingBurn: false}));
         uint256 balance0 = ERC20(Currency.unwrap(currency0)).balanceOf(address(manager));
         uint256 balance1 = ERC20(Currency.unwrap(currency1)).balanceOf(address(manager));
         batchCall.execute(abi.encode(calls), settleData);

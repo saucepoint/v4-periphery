@@ -169,7 +169,7 @@ abstract contract BaseLiquidityManagement is SafeCallback, IBaseLiquidityManagem
         bool claims,
         BalanceDelta tokensOwed
     ) external returns (BalanceDelta delta) {
-        (,BalanceDelta feeDelta) = poolManager.modifyLiquidity(
+        (, BalanceDelta feeDelta) = poolManager.modifyLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams({
                 tickLower: params.tickLower,
