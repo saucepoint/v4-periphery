@@ -6,6 +6,8 @@ import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {BalanceDelta, toBalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {SafeCast} from "@uniswap/v4-core/src/libraries/SafeCast.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 library CurrencyDeltas {
     using SafeCast for uint256;
 
@@ -20,7 +22,6 @@ library CurrencyDeltas {
     {
         bytes32 key0;
         bytes32 key1;
-        bytes32[] memory slots = new bytes32[](2);
         assembly {
             mstore(0, caller_)
             mstore(32, currency0)
@@ -30,7 +31,10 @@ library CurrencyDeltas {
             mstore(32, currency1)
             key1 := keccak256(0, 64)
         }
+        bytes32[] memory slots = new bytes32[](2);
+        slots[0] = key0;
+        slots[1] = key1;
         bytes32[] memory result = manager.exttload(slots);
-        return toBalanceDelta(uint256(result[0]).toInt128(), uint256(result[1]).toInt128());
+        return toBalanceDelta(int128(int256(uint256(result[0]))), int128(int256(uint256(result[1]))));
     }
 }

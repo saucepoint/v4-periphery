@@ -98,8 +98,6 @@ contract zIncreaseLiquidityTest is Test, Deployers, GasSnapshot, Fuzzers {
 
         // alice uses her exact fees to increase liquidity
         (uint256 token0Owed, uint256 token1Owed) = lpm.feesOwed(tokenIdAlice);
-        console2.log("token0Owed", token0Owed);
-        console2.log("token1Owed", token1Owed);
 
         (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(manager, range.key.toId());
         uint256 liquidityDelta = LiquidityAmounts.getLiquidityForAmounts(
@@ -136,7 +134,7 @@ contract zIncreaseLiquidityTest is Test, Deployers, GasSnapshot, Fuzzers {
         swap(key, true, -int256(swapAmount), ZERO_BYTES);
         swap(key, false, -int256(swapAmount), ZERO_BYTES); // move the price back
 
-        // alice will half of her fees to increase liquidity
+        // alice will use half of her fees to increase liquidity
         (uint256 token0Owed, uint256 token1Owed) = lpm.feesOwed(tokenIdAlice);
         {
             (uint160 sqrtPriceX96,,,) = StateLibrary.getSlot0(manager, range.key.toId());

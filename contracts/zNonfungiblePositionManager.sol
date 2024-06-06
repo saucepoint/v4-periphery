@@ -76,7 +76,13 @@ contract zNonfungiblePositionManager is zBaseLiquidityManagement, ERC721 {
     //     require(params.amount1Min <= uint256(uint128(delta.amount1())), "INSUFFICIENT_AMOUNT1");
     // }
 
-    function increaseLiquidity(uint256 tokenId, uint256 liquidity, bytes calldata hookData, bool claims) external {}
+    function increaseLiquidity(uint256 tokenId, uint256 liquidity, bytes calldata hookData, bool claims)
+        external
+        isAuthorizedForToken(tokenId)
+        returns (BalanceDelta delta)
+    {
+        delta = _increaseLiquidity(tokenPositions[tokenId].range, liquidity, hookData, claims, msg.sender);
+    }
 
     function decreaseLiquidity(uint256 tokenId, uint256 liquidity, bytes calldata hookData, bool claims)
         public
