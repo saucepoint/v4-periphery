@@ -19,18 +19,17 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-import {INonfungiblePositionManager} from "../../contracts/interfaces/INonfungiblePositionManager.sol";
-import {zNonfungiblePositionManager} from "../../contracts/zNonfungiblePositionManager.sol";
+import {NonfungiblePositionManager} from "../../contracts/NonfungiblePositionManager.sol";
 import {LiquidityRange, LiquidityRangeId, LiquidityRangeIdLibrary} from "../../contracts/types/LiquidityRange.sol";
 
-import {zLiquidityFuzzers} from "../shared/fuzz/zLiquidityFuzzers.sol";
+import {LiquidityFuzzers} from "../shared/fuzz/LiquidityFuzzers.sol";
 
-contract NonfungiblePositionManagerTest is Test, Deployers, GasSnapshot, zLiquidityFuzzers {
+contract NonfungiblePositionManagerTest is Test, Deployers, GasSnapshot, LiquidityFuzzers {
     using FixedPointMathLib for uint256;
     using CurrencyLibrary for Currency;
     using LiquidityRangeIdLibrary for LiquidityRange;
 
-    zNonfungiblePositionManager lpm;
+    NonfungiblePositionManager lpm;
 
     PoolId poolId;
     address alice = makeAddr("ALICE");
@@ -44,7 +43,7 @@ contract NonfungiblePositionManagerTest is Test, Deployers, GasSnapshot, zLiquid
 
         (key, poolId) = initPool(currency0, currency1, IHooks(address(0)), 3000, SQRT_PRICE_1_1, ZERO_BYTES);
 
-        lpm = new zNonfungiblePositionManager(manager);
+        lpm = new NonfungiblePositionManager(manager);
 
         IERC20(Currency.unwrap(currency0)).approve(address(lpm), type(uint256).max);
         IERC20(Currency.unwrap(currency1)).approve(address(lpm), type(uint256).max);
