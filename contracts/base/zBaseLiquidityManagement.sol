@@ -53,11 +53,11 @@ abstract contract zBaseLiquidityManagement is BaseLiquidityHandler {
         bool claims,
         address owner
     ) internal returns (BalanceDelta delta) {
-        (BalanceDelta _delta, BalanceDelta _feesAccrued) = abi.decode(
+        delta = abi.decode(
             poolManager.unlock(
                 abi.encodeCall(this.handleDecreaseLiquidity, (owner, range, liquidityToRemove, hookData, claims))
             ),
-            (BalanceDelta, BalanceDelta)
+            (BalanceDelta)
         );
     }
 

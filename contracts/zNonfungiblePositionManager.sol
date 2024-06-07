@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import {INonfungiblePositionManager} from "./interfaces/INonfungiblePositionManager.sol";
+import {zINonfungiblePositionManager} from "./interfaces/zINonfungiblePositionManager.sol";
 import {zBaseLiquidityManagement} from "./base/zBaseLiquidityManagement.sol";
 
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
@@ -21,7 +21,7 @@ import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 // TODO: remove
 import {console2} from "forge-std/console2.sol";
 
-contract zNonfungiblePositionManager is zBaseLiquidityManagement, ERC721 {
+contract zNonfungiblePositionManager is zINonfungiblePositionManager, zBaseLiquidityManagement, ERC721 {
     using CurrencyLibrary for Currency;
     using CurrencySettleTake for Currency;
     using PoolIdLibrary for PoolKey;

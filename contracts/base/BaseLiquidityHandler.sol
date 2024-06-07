@@ -142,6 +142,16 @@ abstract contract BaseLiquidityHandler is SafeCallback {
             hookData
         );
 
+        // take all tokens first
+        // do NOT take tokens directly to the owner because this contract might be holding fees
+        // that need to be paid out (position.tokensOwed)
+        if (delta.amount0() > 0) {
+            range.key.currency0.take(poolManager, address(this), uint128(delta.amount0()), true);
+        }
+        if (delta.amount1() > 0) {
+            range.key.currency1.take(poolManager, address(this), uint128(delta.amount1()), true);
+        }
+
         uint128 token0Owed;
         uint128 token1Owed;
         {
@@ -155,19 +165,9 @@ abstract contract BaseLiquidityHandler is SafeCallback {
             position.tokensOwed0 = 0;
             position.tokensOwed1 = 0;
             position.liquidity -= liquidityToRemove;
-            delta = toBalanceDelta(-int128(token0Owed), -int128(token1Owed));
         }
-
         {
-            // take all tokens first
-            // do NOT take tokens directly to the owner because this contract might be holding fees
-            // that need to be paid out (position.tokensOwed)
-            if (delta.amount0() > 0) {
-                range.key.currency0.take(poolManager, address(this), uint128(delta.amount0()), true);
-            }
-            if (delta.amount1() > 0) {
-                range.key.currency1.take(poolManager, address(this), uint128(delta.amount1()), true);
-            }
+            delta = toBalanceDelta(int128(token0Owed), int128(token1Owed));
 
             // sending tokens to the owner
             if (token0Owed > 0) range.key.currency0.send(poolManager, owner, token0Owed, useClaims);
@@ -213,7 +213,7 @@ abstract contract BaseLiquidityHandler is SafeCallback {
         position.tokensOwed0 = 0;
         position.tokensOwed1 = 0;
 
-        return feesAccrued;
+        return toBalanceDelta(uint256(token0Owed).toInt128(), uint256(token1Owed).toInt128());
     }
 
     function _updateFeeGrowth(LiquidityRange memory range, Position storage position)
