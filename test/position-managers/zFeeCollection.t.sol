@@ -257,64 +257,64 @@ contract zFeeCollectionTest is Test, Deployers, GasSnapshot, zLiquidityFuzzers {
         assertApproxEqAbs(manager.balanceOf(address(lpm), currency1.toId()), 0, 1 wei);
     }
 
-    // /// @dev Alice and bob create liquidity on the same range
-    // ///     when alice decreases liquidity, she should only collect her fees
-    // function test_decreaseLiquidity_sameRange_exact() public {
-    //     // alice and bob create liquidity on the same range [-120, 120]
-    //     LiquidityRange memory range = LiquidityRange({key: key, tickLower: -120, tickUpper: 120});
+    /// @dev Alice and bob create liquidity on the same range
+    ///     when alice decreases liquidity, she should only collect her fees
+    function test_decreaseLiquidity_sameRange_exact() public {
+        // alice and bob create liquidity on the same range [-120, 120]
+        LiquidityRange memory range = LiquidityRange({key: key, tickLower: -120, tickUpper: 120});
 
-    //     // alice provisions 3x the amount of liquidity as bob
-    //     uint256 liquidityAlice = 3000e18;
-    //     uint256 liquidityBob = 1000e18;
-    //     vm.prank(alice);
-    //     (uint256 tokenIdAlice, BalanceDelta lpDeltaAlice) =
-    //         lpm.mint(range, liquidityAlice, block.timestamp + 1, alice, ZERO_BYTES);
+        // alice provisions 3x the amount of liquidity as bob
+        uint256 liquidityAlice = 3000e18;
+        uint256 liquidityBob = 1000e18;
+        vm.prank(alice);
+        (uint256 tokenIdAlice, BalanceDelta lpDeltaAlice) =
+            lpm.mint(range, liquidityAlice, block.timestamp + 1, alice, ZERO_BYTES);
 
-    //     vm.prank(bob);
-    //     (uint256 tokenIdBob, BalanceDelta lpDeltaBob) =
-    //         lpm.mint(range, liquidityBob, block.timestamp + 1, bob, ZERO_BYTES);
+        vm.prank(bob);
+        (uint256 tokenIdBob, BalanceDelta lpDeltaBob) =
+            lpm.mint(range, liquidityBob, block.timestamp + 1, bob, ZERO_BYTES);
 
-    //     // swap to create fees
-    //     uint256 swapAmount = 0.001e18;
-    //     swap(key, true, -int256(swapAmount), ZERO_BYTES);
-    //     swap(key, false, -int256(swapAmount), ZERO_BYTES); // move the price back
+        // swap to create fees
+        uint256 swapAmount = 0.001e18;
+        swap(key, true, -int256(swapAmount), ZERO_BYTES);
+        swap(key, false, -int256(swapAmount), ZERO_BYTES); // move the price back
 
-    //     // alice decreases liquidity
-    //     vm.prank(alice);
-    //     BalanceDelta aliceDelta = lpm.decreaseLiquidity(tokenIdAlice, liquidityAlice, ZERO_BYTES, true);
+        // alice decreases liquidity
+        vm.prank(alice);
+        BalanceDelta aliceDelta = lpm.decreaseLiquidity(tokenIdAlice, liquidityAlice, ZERO_BYTES, true);
 
-    //     uint256 tolerance = 0.000000001 ether;
+        uint256 tolerance = 0.000000001 ether;
 
-    //     // alice claims original principal + her fees
-    //     assertApproxEqAbs(
-    //         manager.balanceOf(alice, currency0.toId()),
-    //         uint256(int256(-lpDeltaAlice.amount0()))
-    //             + swapAmount.mulWadDown(FEE_WAD).mulDivDown(liquidityAlice, liquidityAlice + liquidityBob),
-    //         tolerance
-    //     );
-    //     assertApproxEqAbs(
-    //         manager.balanceOf(alice, currency1.toId()),
-    //         uint256(int256(-lpDeltaAlice.amount1()))
-    //             + swapAmount.mulWadDown(FEE_WAD).mulDivDown(liquidityAlice, liquidityAlice + liquidityBob),
-    //         tolerance
-    //     );
+        // alice claims original principal + her fees
+        assertApproxEqAbs(
+            manager.balanceOf(alice, currency0.toId()),
+            uint256(int256(-lpDeltaAlice.amount0()))
+                + swapAmount.mulWadDown(FEE_WAD).mulDivDown(liquidityAlice, liquidityAlice + liquidityBob),
+            tolerance
+        );
+        assertApproxEqAbs(
+            manager.balanceOf(alice, currency1.toId()),
+            uint256(int256(-lpDeltaAlice.amount1()))
+                + swapAmount.mulWadDown(FEE_WAD).mulDivDown(liquidityAlice, liquidityAlice + liquidityBob),
+            tolerance
+        );
 
-    //     // bob decreases half of his liquidity
-    //     vm.prank(bob);
-    //     BalanceDelta bobDelta = lpm.decreaseLiquidity(tokenIdBob, liquidityBob / 2, ZERO_BYTES, true);
+        // bob decreases half of his liquidity
+        vm.prank(bob);
+        BalanceDelta bobDelta = lpm.decreaseLiquidity(tokenIdBob, liquidityBob / 2, ZERO_BYTES, true);
 
-    //     // bob claims half of the original principal + his fees
-    //     assertApproxEqAbs(
-    //         manager.balanceOf(bob, currency0.toId()),
-    //         uint256(int256(-lpDeltaBob.amount0()) / 2)
-    //             + swapAmount.mulWadDown(FEE_WAD).mulDivDown(liquidityBob, liquidityAlice + liquidityBob),
-    //         tolerance
-    //     );
-    //     assertApproxEqAbs(
-    //         manager.balanceOf(bob, currency1.toId()),
-    //         uint256(int256(-lpDeltaBob.amount1()) / 2)
-    //             + swapAmount.mulWadDown(FEE_WAD).mulDivDown(liquidityBob, liquidityAlice + liquidityBob),
-    //         tolerance
-    //     );
-    // }
+        // bob claims half of the original principal + his fees
+        assertApproxEqAbs(
+            manager.balanceOf(bob, currency0.toId()),
+            uint256(int256(-lpDeltaBob.amount0()) / 2)
+                + swapAmount.mulWadDown(FEE_WAD).mulDivDown(liquidityBob, liquidityAlice + liquidityBob),
+            tolerance
+        );
+        assertApproxEqAbs(
+            manager.balanceOf(bob, currency1.toId()),
+            uint256(int256(-lpDeltaBob.amount1()) / 2)
+                + swapAmount.mulWadDown(FEE_WAD).mulDivDown(liquidityBob, liquidityAlice + liquidityBob),
+            tolerance
+        );
+    }
 }

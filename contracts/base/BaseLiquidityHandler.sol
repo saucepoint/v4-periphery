@@ -51,7 +51,7 @@ abstract contract BaseLiquidityHandler is SafeCallback {
         uint128 tokensOwed1;
     }
 
-    mapping(address owner => mapping(LiquidityRangeId rangeId => Position)) internal positions;
+    mapping(address owner => mapping(LiquidityRangeId rangeId => Position)) public positions;
 
     error LockFailure();
 
