@@ -121,8 +121,10 @@ contract BaseLiquidityManagement is SafeCallback {
         range.key.currency0.take(poolManager, address(this), uint128(excessFees.amount0()), true);
         range.key.currency1.take(poolManager, address(this), uint128(excessFees.amount1()), true);
 
-        // get remaining deltas: the user pays additional to increase liquidity OR the user collects fees
+        // get remaining deltas: the user pays additional to increase liquidity OR the user collects their fees
         delta = poolManager.currencyDeltas(address(this), range.key.currency0, range.key.currency1);
+
+        // TODO: use position.tokensOwed0 to pay the delta?
         if (delta.amount0() < 0) {
             range.key.currency0.settle(poolManager, sender, uint256(int256(-delta.amount0())), claims);
         }
@@ -163,10 +165,13 @@ contract BaseLiquidityManagement is SafeCallback {
             range.key.currency1.take(poolManager, address(this), uint128(delta.amount1()), true);
         }
 
+        // when decreasing liquidity, the user collects: 1) principal liquidity, 2) new fees, 3) old fees (position.tokensOwed)
+
         Position storage position = positions[owner][range.toId()];
         (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(range, position);
-
         BalanceDelta principalDelta = delta - feesAccrued;
+
+        // new fees += old fees + principal liquidity
         token0Owed += position.tokensOwed0 + uint128(principalDelta.amount0());
         token1Owed += position.tokensOwed1 + uint128(principalDelta.amount1());
 
@@ -198,6 +203,7 @@ contract BaseLiquidityManagement is SafeCallback {
             key.currency1.take(poolManager, address(this), uint128(feesAccrued.amount1()), true);
         }
 
+        // collecting fees: new fees and old fees
         (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(range, position);
         token0Owed += position.tokensOwed0;
         token1Owed += position.tokensOwed1;
