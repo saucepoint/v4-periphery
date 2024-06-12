@@ -115,38 +115,33 @@ contract BaseLiquidityManagement is SafeCallback {
     ) internal returns (BalanceDelta) {
         Position storage position = positions[sender][range.toId()];
 
-        {
-            // take fees not accrued by user's position
-            (uint256 token0Owed, uint256 token1Owed) = _updateFeeGrowth(range, position);
-            BalanceDelta excessFees = feesAccrued - toBalanceDelta(token0Owed.toInt128(), token1Owed.toInt128());
-            range.key.currency0.take(poolManager, address(this), uint128(excessFees.amount0()), true);
-            range.key.currency1.take(poolManager, address(this), uint128(excessFees.amount1()), true);
+        // take fees not accrued by user's position
+        (uint256 token0Owed, uint256 token1Owed) = _updateFeeGrowth(range, position);
+        BalanceDelta excessFees = feesAccrued - toBalanceDelta(token0Owed.toInt128(), token1Owed.toInt128());
+        range.key.currency0.take(poolManager, address(this), uint128(excessFees.amount0()), true);
+        range.key.currency1.take(poolManager, address(this), uint128(excessFees.amount1()), true);
+
+        // get remaining deltas: the user pays additional to increase liquidity OR the user collects fees
+        delta = poolManager.currencyDeltas(address(this), range.key.currency0, range.key.currency1);
+        if (delta.amount0() < 0) {
+            range.key.currency0.settle(poolManager, sender, uint256(int256(-delta.amount0())), claims);
+        }
+        if (delta.amount1() < 0) {
+            range.key.currency1.settle(poolManager, sender, uint256(int256(-delta.amount1())), claims);
+        }
+        if (delta.amount0() > 0) {
+            range.key.currency0.take(poolManager, address(this), uint256(int256(delta.amount0())), true);
+        }
+        if (delta.amount1() > 0) {
+            range.key.currency1.take(poolManager, address(this), uint256(int256(delta.amount1())), true);
         }
 
-        {
-            // get remaining deltas: the user pays additional to increase liquidity OR the user collects fees
-            delta = poolManager.currencyDeltas(address(this), range.key.currency0, range.key.currency1);
-            if (delta.amount0() < 0) {
-                range.key.currency0.settle(poolManager, sender, uint256(int256(-delta.amount0())), claims);
-            }
-            if (delta.amount1() < 0) {
-                range.key.currency1.settle(poolManager, sender, uint256(int256(-delta.amount1())), claims);
-            }
-            if (delta.amount0() > 0) {
-                range.key.currency0.take(poolManager, address(this), uint256(int256(delta.amount0())), true);
-            }
-            if (delta.amount1() > 0) {
-                range.key.currency1.take(poolManager, address(this), uint256(int256(delta.amount1())), true);
-            }
-        }
+        positions[sender][range.toId()].liquidity += liquidityToAdd;
 
-        {
-            positions[sender][range.toId()].liquidity += liquidityToAdd;
+        // collected fees are credited to the position OR zero'd out
+        delta.amount0() > 0 ? position.tokensOwed0 += uint128(delta.amount0()) : position.tokensOwed0 = 0;
+        delta.amount1() > 0 ? position.tokensOwed1 += uint128(delta.amount1()) : position.tokensOwed1 = 0;
 
-            // collected fees are credited to the position OR zero'd out
-            delta.amount0() > 0 ? position.tokensOwed0 += uint128(delta.amount0()) : position.tokensOwed0 = 0;
-            delta.amount1() > 0 ? position.tokensOwed1 += uint128(delta.amount1()) : position.tokensOwed1 = 0;
-        }
         return delta;
     }
 
@@ -168,27 +163,22 @@ contract BaseLiquidityManagement is SafeCallback {
             range.key.currency1.take(poolManager, address(this), uint128(delta.amount1()), true);
         }
 
-        uint128 token0Owed;
-        uint128 token1Owed;
-        {
-            Position storage position = positions[owner][range.toId()];
-            (token0Owed, token1Owed) = _updateFeeGrowth(range, position);
+        Position storage position = positions[owner][range.toId()];
+        (uint128 token0Owed, uint128 token1Owed) = _updateFeeGrowth(range, position);
 
-            BalanceDelta principalDelta = delta - feesAccrued;
-            token0Owed += position.tokensOwed0 + uint128(principalDelta.amount0());
-            token1Owed += position.tokensOwed1 + uint128(principalDelta.amount1());
+        BalanceDelta principalDelta = delta - feesAccrued;
+        token0Owed += position.tokensOwed0 + uint128(principalDelta.amount0());
+        token1Owed += position.tokensOwed1 + uint128(principalDelta.amount1());
 
-            position.tokensOwed0 = 0;
-            position.tokensOwed1 = 0;
-            position.liquidity -= liquidityToRemove;
-        }
-        {
-            delta = toBalanceDelta(int128(token0Owed), int128(token1Owed));
+        position.tokensOwed0 = 0;
+        position.tokensOwed1 = 0;
+        position.liquidity -= liquidityToRemove;
 
-            // sending tokens to the owner
-            if (token0Owed > 0) range.key.currency0.send(poolManager, owner, token0Owed, claims);
-            if (token1Owed > 0) range.key.currency1.send(poolManager, owner, token1Owed, claims);
-        }
+        delta = toBalanceDelta(int128(token0Owed), int128(token1Owed));
+
+        // sending tokens to the owner
+        if (token0Owed > 0) range.key.currency0.send(poolManager, owner, token0Owed, claims);
+        if (token1Owed > 0) range.key.currency1.send(poolManager, owner, token1Owed, claims);
 
         return delta;
     }
