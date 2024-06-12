@@ -17,7 +17,7 @@ import {CurrencySettleTake} from "../libraries/CurrencySettleTake.sol";
 import {FeeMath} from "../libraries/FeeMath.sol";
 import {BaseLiquidityHandler} from "./BaseLiquidityHandler.sol";
 
-abstract contract BaseLiquidityManagement is BaseLiquidityHandler {
+contract BaseLiquidityManagement is BaseLiquidityHandler {
     using LiquidityRangeIdLibrary for LiquidityRange;
     using CurrencyLibrary for Currency;
     using CurrencySettleTake for Currency;
@@ -27,42 +27,15 @@ abstract contract BaseLiquidityManagement is BaseLiquidityHandler {
 
     constructor(IPoolManager _poolManager) BaseLiquidityHandler(_poolManager) {}
 
-    function _increaseLiquidity(
-        LiquidityRange memory range,
-        uint256 liquidityToAdd,
-        bytes calldata hookData,
-        bool claims,
-        address owner
-    ) internal returns (BalanceDelta delta) {
-        delta = abi.decode(
-            poolManager.unlock(
-                abi.encodeCall(this.handleIncreaseLiquidity, (msg.sender, range, liquidityToAdd, hookData, claims))
-            ),
-            (BalanceDelta)
-        );
-    }
-
-    function _decreaseLiquidity(
-        LiquidityRange memory range,
-        uint256 liquidityToRemove,
-        bytes calldata hookData,
-        bool claims,
-        address owner
-    ) internal returns (BalanceDelta delta) {
-        delta = abi.decode(
-            poolManager.unlock(
-                abi.encodeCall(this.handleDecreaseLiquidity, (owner, range, liquidityToRemove, hookData, claims))
-            ),
-            (BalanceDelta)
-        );
-    }
-
-    function _collect(LiquidityRange memory range, bytes calldata hookData, bool claims, address owner)
+    function modifyLiquidity(LiquidityRange memory range, int256 liquidityDelta, bytes calldata hookData, bool claims)
         internal
         returns (BalanceDelta delta)
     {
         delta = abi.decode(
-            poolManager.unlock(abi.encodeCall(this.handleCollect, (owner, range, hookData, claims))), (BalanceDelta)
+            poolManager.unlock(
+                abi.encodeCall(this.handleModifyLiquidity, (msg.sender, range, liquidityDelta, hookData, claims))
+            ),
+            (BalanceDelta)
         );
     }
 

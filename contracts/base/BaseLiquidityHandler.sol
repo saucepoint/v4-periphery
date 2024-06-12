@@ -63,27 +63,34 @@ abstract contract BaseLiquidityHandler is SafeCallback {
         }
     }
 
-    function handleIncreaseLiquidity(
+    function handleModifyLiquidity(
+        address sender,
+        LiquidityRange calldata range,
+        int256 liquidityDelta,
+        bytes calldata hookData,
+        bool claims
+    ) external returns (BalanceDelta delta) {
+        if (liquidityDelta > 0) {
+            delta = _handleIncreaseLiquidity(sender, range, uint256(liquidityDelta), hookData, claims);
+        } else if (liquidityDelta < 0) {
+            delta = _handleDecreaseLiquidity(sender, range, uint256(-liquidityDelta), hookData, claims);
+        } else {
+            delta = _handleCollect(sender, range, hookData, claims);
+        }
+    }
+
+    function _handleIncreaseLiquidity(
         address sender,
         LiquidityRange calldata range,
         uint256 liquidityToAdd,
         bytes calldata hookData,
         bool claims
-    ) external returns (BalanceDelta delta) {
+    ) internal returns (BalanceDelta delta) {
         Position storage position = positions[sender][range.toId()];
 
         {
             BalanceDelta feeDelta;
-            (delta, feeDelta) = poolManager.modifyLiquidity(
-                range.key,
-                IPoolManager.ModifyLiquidityParams({
-                    tickLower: range.tickLower,
-                    tickUpper: range.tickUpper,
-                    liquidityDelta: int256(liquidityToAdd),
-                    salt: range.key.hooks.getLiquiditySalt(sender)
-                }),
-                hookData
-            );
+            (delta, feeDelta) = _modifyLiquidity(range, liquidityToAdd.toInt256(), sender, hookData);
             // take fees not accrued by user's position
             (uint256 token0Owed, uint256 token1Owed) = _updateFeeGrowth(range, position);
             BalanceDelta excessFees = feeDelta - toBalanceDelta(token0Owed.toInt128(), token1Owed.toInt128());
@@ -118,23 +125,15 @@ abstract contract BaseLiquidityHandler is SafeCallback {
         return delta;
     }
 
-    function handleDecreaseLiquidity(
+    function _handleDecreaseLiquidity(
         address owner,
         LiquidityRange calldata range,
         uint256 liquidityToRemove,
         bytes calldata hookData,
         bool useClaims
-    ) external returns (BalanceDelta) {
-        (BalanceDelta delta, BalanceDelta feesAccrued) = poolManager.modifyLiquidity(
-            range.key,
-            IPoolManager.ModifyLiquidityParams({
-                tickLower: range.tickLower,
-                tickUpper: range.tickUpper,
-                liquidityDelta: -int256(liquidityToRemove),
-                salt: range.key.hooks.getLiquiditySalt(owner)
-            }),
-            hookData
-        );
+    ) internal returns (BalanceDelta) {
+        (BalanceDelta delta, BalanceDelta feesAccrued) =
+            _modifyLiquidity(range, -int256(liquidityToRemove.toInt256()), owner, hookData);
 
         // take all tokens first
         // do NOT take tokens directly to the owner because this contract might be holding fees
@@ -171,23 +170,14 @@ abstract contract BaseLiquidityHandler is SafeCallback {
         return delta;
     }
 
-    function handleCollect(address owner, LiquidityRange calldata range, bytes calldata hookData, bool takeClaims)
-        external
+    function _handleCollect(address owner, LiquidityRange calldata range, bytes calldata hookData, bool takeClaims)
+        internal
         returns (BalanceDelta)
     {
         PoolKey memory key = range.key;
         Position storage position = positions[owner][range.toId()];
 
-        (, BalanceDelta feesAccrued) = poolManager.modifyLiquidity(
-            key,
-            IPoolManager.ModifyLiquidityParams({
-                tickLower: range.tickLower,
-                tickUpper: range.tickUpper,
-                liquidityDelta: 0,
-                salt: key.hooks.getLiquiditySalt(owner)
-            }),
-            hookData
-        );
+        (, BalanceDelta feesAccrued) = _modifyLiquidity(range, 0, owner, hookData);
 
         // take all fees first then distribute
         if (feesAccrued.amount0() > 0) {
@@ -208,6 +198,24 @@ abstract contract BaseLiquidityHandler is SafeCallback {
         position.tokensOwed1 = 0;
 
         return toBalanceDelta(uint256(token0Owed).toInt128(), uint256(token1Owed).toInt128());
+    }
+
+    function _modifyLiquidity(
+        LiquidityRange memory range,
+        int256 liquidityDelta,
+        address owner,
+        bytes calldata hookData
+    ) private returns (BalanceDelta delta, BalanceDelta feesAccrued) {
+        (delta, feesAccrued) = poolManager.modifyLiquidity(
+            range.key,
+            IPoolManager.ModifyLiquidityParams({
+                tickLower: range.tickLower,
+                tickUpper: range.tickUpper,
+                liquidityDelta: liquidityDelta,
+                salt: range.key.hooks.getLiquiditySalt(owner)
+            }),
+            hookData
+        );
     }
 
     function _updateFeeGrowth(LiquidityRange memory range, Position storage position)
